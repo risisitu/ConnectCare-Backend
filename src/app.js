@@ -47,8 +47,8 @@ app.get('/api/test', (req, res) => {
 app.post('/api/verify-token', authMiddleware, (req, res) => {
     // If middleware passes, token is valid
     console.log('Token verified for user:', req.user);
-    res.json({ 
-        success: true, 
+    res.json({
+        success: true,
         message: 'Token is valid',
         user: {
             id: req.user.id,
@@ -67,21 +67,21 @@ app.use('/api/auth', authRoutes);
 // 404 handler - catch unmatched routes
 app.use((req, res) => {
     console.log('404 - Route not found:', req.method, req.url);
-    res.status(404).json({ 
-        success: false, 
+    res.status(404).json({
+        success: false,
         error: 'Route not found',
         path: req.url,
-        method: req.method 
+        method: req.method
     });
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Error occurred:', err);
-    res.status(500).json({ 
-        success: false, 
+    res.status(500).json({
+        success: false,
         error: 'Internal server error',
-        message: err.message 
+        message: err.message
     });
 });
 
@@ -91,6 +91,10 @@ const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+// Initialize Socket.IO
+const { initSocket } = require('./socket/socket.handler');
+initSocket(server);
 
 // Handle server errors
 server.on('error', (error) => {
