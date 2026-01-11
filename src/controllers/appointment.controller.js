@@ -1,6 +1,7 @@
 
 const Appointment = require('../models/appointment.model');
 const otpService = require('../utils/otp.service');
+const emailService = require('../utils/email.service');
 
 class AppointmentController {
     static async createAppointment(req, res) {
@@ -9,7 +10,7 @@ class AppointmentController {
         console.log('Request method:', req.method);
         console.log('Request headers:', req.headers);
         console.log('Request body:', req.body);
-        
+
         try {
             // First verify database connection
             const pool = require('../config/db.config');
@@ -65,12 +66,12 @@ class AppointmentController {
                 patient = null;
             }
 
-                        // Send email to doctor (book appointment notification)
-                        if (doctor && doctor.email) {
-                                const subject = 'New Appointment Request';
-                                const text = `Dear Dr. ${doctor.last_name || ''},\n\nA new appointment has been requested by ${patient ? (patient.first_name + ' ' + patient.last_name) : 'a patient'}.\n\nDate: ${appointment.appointment_date || appointment.appointmentDate || req.body.appointmentDate}\nTime: ${appointment.appointment_time || appointment.appointmentTime || req.body.appointmentTime}\nType: ${appointment.appointment_type || appointment.appointmentType || req.body.appointmentType}\nReason: ${appointment.reason || req.body.reason}\n\nPlease log in to ConnectCare to view more details.`;
-                                // Modern HTML layout inspired by the provided React interface
-                                const html = `<!DOCTYPE html><html><head><meta charset='UTF-8'><title>New Appointment Request</title></head><body style='background:#f3f4f6;margin:0;padding:0;font-family:sans-serif;'>
+            // Send email to doctor (book appointment notification)
+            if (doctor && doctor.email) {
+                const subject = 'New Appointment Request';
+                const text = `Dear Dr. ${doctor.last_name || ''},\n\nA new appointment has been requested by ${patient ? (patient.first_name + ' ' + patient.last_name) : 'a patient'}.\n\nDate: ${appointment.appointment_date || appointment.appointmentDate || req.body.appointmentDate}\nTime: ${appointment.appointment_time || appointment.appointmentTime || req.body.appointmentTime}\nType: ${appointment.appointment_type || appointment.appointmentType || req.body.appointmentType}\nReason: ${appointment.reason || req.body.reason}\n\nPlease log in to ConnectCare to view more details.`;
+                // Modern HTML layout inspired by the provided React interface
+                const html = `<!DOCTYPE html><html><head><meta charset='UTF-8'><title>New Appointment Request</title></head><body style='background:#f3f4f6;margin:0;padding:0;font-family:sans-serif;'>
 <div style='max-width:700px;margin:40px auto;background:#fff;border-radius:12px;box-shadow:0 2px 12px #0002;overflow:hidden;'>
     <div style='background:#2563eb;color:#fff;padding:28px 24px 18px 24px;display:flex;align-items:center;justify-content:space-between;'>
         <div style='display:flex;align-items:center;gap:12px;'>
@@ -126,8 +127,8 @@ class AppointmentController {
     </div>
 </div>
 </body></html>`;
-                                await otpService.sendGenericEmail(doctor.email, subject, text, html);
-                        }
+                await otpService.sendGenericEmail(doctor.email, subject, text, html);
+            }
 
             res.status(201).json({
                 success: true,
@@ -145,7 +146,7 @@ class AppointmentController {
         try {
             const { id: userId, role } = req.user;
             const { status, date } = req.query;
-            
+
             const appointments = await Appointment.getAppointments(userId, role, status, date);
             res.json({
                 success: true,
@@ -230,6 +231,90 @@ class AppointmentController {
                 data: appointment
             });
         } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+    static async sendVideoCallInvite(req, res) {
+        try {
+            const { id: userId, role } = req.user;
+            const { doctorId, patientId, doctorName, patientName, link } = req.body;
+
+            // Simple validation
+            if (!link) {
+                return res.status(400).json({ success: false, error: 'Video call link is required' });
+            }
+
+            // If sender is patient, we notify doctor
+            // If sender is doctor, we notify patient
+            // But based on request, "When a patient select the call button, it should send api to doctor"
+
+            // We need target email. 
+            // If passed explicitly, great. If not, we might need to fetch it.
+            // For simplicity/speed, let's assume we fetch if ID is provided, or rely on passed "targetEmail" if we want to be flexible.
+            // But usually we should fetch from DB for security.
+
+            const pool = require('../config/db.config');
+
+            let targetEmail = '';
+            let targetName = doctorName || 'Doctor';
+            let senderName = patientName || 'Patient';
+
+            if (role === 'patient') {
+                // Sender is patient, target is doctor
+                if (!doctorId) {
+                    return res.status(400).json({ success: false, error: 'Doctor ID is required' });
+                }
+                const result = await pool.query('SELECT email, first_name, last_name FROM doctors WHERE id = $1', [doctorId]);
+                if (result.rows.length === 0) {
+                    return res.status(404).json({ success: false, error: 'Doctor not found' });
+                }
+                const doctor = result.rows[0];
+                targetEmail = doctor.email;
+                targetName = `Dr. ${doctor.last_name || doctor.first_name}`;
+
+                // Get patient name if not provided
+                if (!patientName) {
+                    const pResult = await pool.query('SELECT first_name, last_name FROM patients WHERE id = $1', [userId]);
+                    if (pResult.rows.length > 0) {
+                        senderName = `${pResult.rows[0].first_name} ${pResult.rows[0].last_name}`;
+                    }
+                }
+            } else if (role === 'doctor') {
+                // Sender is doctor, target is patient (optional bonus)
+                if (!patientId) {
+                    return res.status(400).json({ success: false, error: 'Patient ID is required' });
+                }
+                const result = await pool.query('SELECT email, first_name, last_name FROM patients WHERE id = $1', [patientId]);
+                if (result.rows.length === 0) {
+                    return res.status(404).json({ success: false, error: 'Patient not found' });
+                }
+                const patient = result.rows[0];
+                targetEmail = patient.email;
+                targetName = `${patient.first_name} ${patient.last_name}`;
+
+                // Get doctor name if not provided
+                if (!doctorName) {
+                    const dResult = await pool.query('SELECT first_name, last_name FROM doctors WHERE id = $1', [userId]);
+                    if (dResult.rows.length > 0) {
+                        senderName = `Dr. ${dResult.rows[0].last_name || dResult.rows[0].first_name}`;
+                    }
+                }
+            }
+
+            if (!targetEmail) {
+                return res.status(400).json({ success: false, error: 'Could not determine target email' });
+            }
+
+            const emailSent = await emailService.sendVideoCallEmail(targetEmail, targetName, senderName, link);
+
+            if (emailSent) {
+                res.json({ success: true, message: 'Invite sent successfully' });
+            } else {
+                res.status(500).json({ success: false, error: 'Failed to send email' });
+            }
+
+        } catch (error) {
+            console.error('Send invite error:', error);
             res.status(500).json({ success: false, error: error.message });
         }
     }
