@@ -11,6 +11,17 @@ class DoctorController {
         }
     }
 
+    static async getDoctorAppointmentsById(req, res) {
+        try {
+            const doctorId = req.params.id;
+            const { status, date } = req.query;
+            const appointments = await Doctor.getDoctorAppointments(doctorId, status, date);
+            res.json({ success: true, data: appointments });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
     static async getDoctorById(req, res) {
         try {
             const id = req.params.id;
@@ -42,9 +53,9 @@ class DoctorController {
             console.log('Signup request body:', req.body);
 
             // Validate required fields
-            const requiredFields = ['email', 'password', 'firstName', 'lastName', 'phoneNumber', 
-                                  'specialization', 'licenseNumber', 'experienceYears', 'clinicAddress'];
-            
+            const requiredFields = ['email', 'password', 'firstName', 'lastName', 'phoneNumber',
+                'specialization', 'licenseNumber', 'experienceYears', 'clinicAddress'];
+
             for (const field of requiredFields) {
                 if (!req.body[field]) {
                     return res.status(400).json({
@@ -61,7 +72,7 @@ class DoctorController {
             };
 
             const newDoctor = await Doctor.createDoctor(doctorData);
-            
+
             // Generate JWT token
             const token = jwt.sign(
                 { id: newDoctor.id, email: newDoctor.email, role: 'doctor' },
@@ -86,7 +97,7 @@ class DoctorController {
         try {
             const { email, password } = req.body;
             const doctor = await Doctor.login(email, password);
-            
+
             // Generate JWT token
             const token = jwt.sign(
                 { id: doctor.id, email: doctor.email, role: 'doctor' },
@@ -110,7 +121,7 @@ class DoctorController {
         try {
             const doctorId = req.user.id; // From JWT middleware
             const updateData = req.body;
-            
+
             const updatedDoctor = await Doctor.updateProfile(doctorId, updateData);
             if (!updatedDoctor) {
                 return res.status(400).json({ success: false, message: 'No valid fields to update' });
@@ -137,11 +148,11 @@ class DoctorController {
             const doctorId = req.user.id; // From JWT middleware
             const patientId = req.params.patientId;
             const patient = await Doctor.getPatientById(doctorId, patientId);
-            
+
             if (!patient) {
-                return res.status(404).json({ 
-                    success: false, 
-                    message: 'Patient not found or not associated with this doctor' 
+                return res.status(404).json({
+                    success: false,
+                    message: 'Patient not found or not associated with this doctor'
                 });
             }
 
@@ -180,18 +191,18 @@ class DoctorController {
             const { status, notes } = req.body;
 
             if (!status || !['approved', 'rejected', 'iterated'].includes(status)) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: "Status must be one of: 'approved', 'rejected', 'iterated'" 
+                return res.status(400).json({
+                    success: false,
+                    error: "Status must be one of: 'approved', 'rejected', 'iterated'"
                 });
             }
 
             const report = await Doctor.updateReportStatus(doctorId, reportId, status, notes);
-            
+
             if (!report) {
-                return res.status(404).json({ 
-                    success: false, 
-                    message: 'Report not found or not associated with this doctor' 
+                return res.status(404).json({
+                    success: false,
+                    message: 'Report not found or not associated with this doctor'
                 });
             }
 
@@ -205,12 +216,12 @@ class DoctorController {
         try {
             const doctorId = req.params.doctorId;
             const patients = await Doctor.getDoctorPatients(doctorId);
-            
+
             if (!patients || patients.length === 0) {
-                return res.status(404).json({ 
-                    success: true, 
+                return res.status(404).json({
+                    success: true,
                     data: [],
-                    message: 'No patients found for this doctor' 
+                    message: 'No patients found for this doctor'
                 });
             }
 

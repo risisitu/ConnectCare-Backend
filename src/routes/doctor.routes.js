@@ -8,6 +8,8 @@ doctorRouter.post('/signup', DoctorController.signup);
 doctorRouter.post('/login', DoctorController.login);
 doctorRouter.get('/getallDoctors', DoctorController.getAllDoctors);
 doctorRouter.get('/doctors/:id', DoctorController.getDoctorById);
+// Get appointments of a specific doctor
+doctorRouter.get('/:id/appointments', DoctorController.getDoctorAppointmentsById);
 // Get all patients of a specific doctor
 doctorRouter.get('/:doctorId/patients', DoctorController.getDoctorPatientsList);
 
