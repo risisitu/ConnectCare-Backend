@@ -26,7 +26,7 @@ class Doctor {
     static async createDoctor(doctorData) {
         try {
             const { email, password, firstName, lastName, phoneNumber, specialization, licenseNumber, experienceYears, clinicAddress, profileImage } = doctorData;
-            
+
             // Check if email already exists
             const checkEmail = await pool.query('SELECT id FROM doctors WHERE email = $1', [email]);
             if (checkEmail.rows.length > 0) {
@@ -67,7 +67,7 @@ class Doctor {
         try {
             const query = 'SELECT * FROM doctors WHERE email = $1';
             const result = await pool.query(query, [email]);
-            
+
             if (result.rows.length === 0) {
                 throw new Error('Doctor not found');
             }
@@ -89,7 +89,7 @@ class Doctor {
 
     static async updateProfile(id, updateData) {
         try {
-            const allowedFields = ['first_name', 'last_name', 'phone_number', 'specialization', 'clinic_address', 'profile_image'];
+            const allowedFields = ['first_name', 'last_name', 'phone_number', 'specialization', 'clinic_address', 'profile_image', 'experience_years'];
             const updates = [];
             const values = [id];
             let paramCount = 2;
@@ -243,7 +243,7 @@ class Doctor {
                           a.appointment_date,
                           a.appointment_type
             `;
-            
+
             const result = await pool.query(query, [status, notes, reportId, doctorId]);
             return result.rows[0];
         } catch (error) {
