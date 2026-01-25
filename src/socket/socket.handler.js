@@ -1,4 +1,6 @@
 const socketIo = require('socket.io');
+const Message = require('../models/message.model');
+
 
 const users = {};
 
@@ -39,6 +41,36 @@ const initSocket = (server) => {
 
             console.log(`${username} (${userId}) joined with socket ${socket.id}`);
         });
+
+        // Join specific appointment room
+        socket.on('join-appointment', (appointmentId) => {
+            socket.join(appointmentId);
+            console.log(`Socket ${socket.id} joined appointment room ${appointmentId}`);
+        });
+
+        // Handle chat messages
+        socket.on('send-message', async (data) => {
+            const { appointmentId, senderId, senderName, content } = data;
+
+            try {
+                // Save to database
+                const savedMessage = await Message.createMessage({
+                    appointmentId,
+                    senderId,
+                    senderName,
+                    content
+                });
+
+                // Broadcast to room (including sender, or exclude sender depending on UI logic)
+                // Using io.to().emit() sends to everyone in room including sender if they are in it
+                io.to(appointmentId).emit('receive-message', savedMessage);
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                socket.emit('error', { message: 'Failed to send message' });
+            }
+        });
+
 
         // Send offer
         socket.on('offer', (data) => {

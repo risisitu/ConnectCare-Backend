@@ -134,3 +134,14 @@ CREATE TRIGGER update_medical_reports_updated_at
     BEFORE UPDATE ON medical_reports
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- Messages table for Video Call Chat
+CREATE TABLE messages (
+    id VARCHAR(36) PRIMARY KEY,
+    appointment_id VARCHAR(36) NOT NULL,
+    sender_id VARCHAR(36) NOT NULL,
+    sender_name VARCHAR(100) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (appointment_id) REFERENCES appointments(id)
+);

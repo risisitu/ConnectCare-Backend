@@ -29,7 +29,9 @@ app.use((req, res, next) => {
 const doctorRoutes = require('./routes/doctor.routes');
 const patientRoutes = require('./routes/patient.routes');
 const appointmentRoutes = require('./routes/appointment.routes');
+const messageRoutes = require('./routes/message.routes');
 const authRoutes = require('./routes/auth.routes');
+
 
 // Root route
 app.get('/', (req, res) => {
@@ -62,7 +64,9 @@ app.post('/api/verify-token', authMiddleware, (req, res) => {
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/messages', messageRoutes);
 app.use('/api/auth', authRoutes);
+
 
 // 404 handler - catch unmatched routes
 app.use((req, res) => {
@@ -88,8 +92,9 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 // Start server
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running on port ${PORT}`);
+    console.log(`Network access: http://192.168.1.140:${PORT}`);
 });
 
 // Initialize Socket.IO
