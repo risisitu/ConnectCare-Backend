@@ -107,6 +107,14 @@ const initSocket = (server) => {
             });
         });
 
+        // Handle end call
+        socket.on('end-call', (data) => {
+            console.log('Call ended by', data.from, 'to', data.to);
+            io.to(data.to).emit('end-call', {
+                from: data.from
+            });
+        });
+
         // User disconnects
         socket.on('disconnect', () => {
             const user = users[socket.id];
