@@ -8,7 +8,10 @@ router.use(authMiddleware);
 
 router.post('/appointments/:appointmentId/reports', ReportController.generateReport);
 router.post('/appointments/:appointmentId/ai-reports', ReportController.generateAIReport);
+router.get('/reports', ReportController.getAllReports);
 router.get('/reports/:reportId', ReportController.getReport);
+router.put('/reports/:reportId/content', ReportController.updateReportContent);
+router.post('/reports/:reportId/send', ReportController.sendReportToPatient);
 router.put('/reports/:reportId', ReportController.updateReportStatus);
 
 module.exports = router;

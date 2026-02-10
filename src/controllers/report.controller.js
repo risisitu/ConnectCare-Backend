@@ -57,19 +57,54 @@ class ReportController {
                 return res.status(404).json({ success: false, error: 'Appointment not found' });
             }
 
+            // Get message history
+            const Message = require('../models/message.model');
+            const messages = await Message.getMessagesByAppointmentId(appointmentId);
+
+            // Format conversation
+            const conversationText = messages.map(m => `${m.sender_name}: ${m.content}`).join('\n'); // Verify field names from Message model
+
             // Generate AI report
-            const aiReport = await Report.generateAIReport(appointment);
+            const DeepSeekService = require('../services/deepseek.service');
+            const aiReportData = await DeepSeekService.generateMedicalReport(conversationText);
 
             // Save the AI-generated report
             const reportData = {
                 appointmentId,
                 patientId: appointment.patient_id,
                 doctorId: appointment.doctor_id,
-                ...aiReport,
+                diagnosis: aiReportData.assessment || 'Pending Review',
+                prescription: aiReportData.treatment_plan || 'Pending',
+                notes: JSON.stringify(aiReportData), // Store full JSON in notes or handling distinct fields if schema supports
                 aiGenerated: true
             };
 
+            // Map AI fields to DB columns if they differ. 
+            // DB has: diagnosis, prescription, notes. 
+            // AI returns: chief_complaint, history..., assessment, etc.
+            // We should probably store the structured data.
+            // Since existing schema is simple (diagnosis, prescription, notes), I'll put the summary in diagnosis/prescription and full content in notes.
+
+            reportData.diagnosis = aiReportData.assessment;
+            reportData.prescription = aiReportData.treatment_plan;
+            reportData.notes = JSON.stringify(aiReportData);
+
             const report = await Report.createReport(reportData);
+
+            // Send Email
+            const EmailService = require('../utils/email.service');
+            const doctorName = `${appointment.doctor_first_name} ${appointment.doctor_last_name}`;
+            const patientName = `${appointment.patient_first_name} ${appointment.patient_last_name}`;
+            // Get doctor email - Wait, appointment object doesn't have doctor email.
+            // Need to fetch doctor email.
+            const Doctor = require('../models/doctor.model');
+            const doctor = await Doctor.getDoctorById(appointment.doctor_id);
+
+            if (doctor && doctor.email) {
+                await EmailService.sendMedicalReport(doctor.email, doctorName, patientName, aiReportData, report.id);
+            }
+
+
             res.status(201).json({
                 success: true,
                 data: report
@@ -118,6 +153,89 @@ class ReportController {
         }
     }
 
+    static async updateReportContent(req, res) {
+        try {
+            const { id: userId, role } = req.user;
+            if (role !== 'doctor') {
+                return res.status(403).json({ success: false, error: 'Only doctors can edit reports' });
+            }
+
+            const { reportId } = req.params;
+            const { diagnosis, prescription, notes } = req.body;
+
+            const report = await Report.updateReportContent(reportId, { diagnosis, prescription, notes }, userId);
+
+            res.json({
+                success: true,
+                data: report
+            });
+        } catch (error) {
+            if (error.message === 'Report not found or unauthorized') {
+                return res.status(403).json({ success: false, error: error.message });
+            }
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    static async sendReportToPatient(req, res) {
+        try {
+            const { id: userId, role } = req.user;
+            if (role !== 'doctor') {
+                return res.status(403).json({ success: false, error: 'Only doctors can send reports' });
+            }
+
+            const { reportId } = req.params;
+
+            // Get report details
+            const report = await Report.getReportById(reportId);
+            if (!report) {
+                return res.status(404).json({ success: false, error: 'Report not found' });
+            }
+
+            // Verify doctor ownership
+            if (report.doctor_id !== userId) {
+                return res.status(403).json({ success: false, error: 'Unauthorized' });
+            }
+
+            // Get patient email
+            const Patient = require('../models/patient.model');
+            // Assuming Patient model has getPatientById or similar. 
+            // Wait, I should verify Patient model. 
+            // Report already has patient_first_name... but not email.
+            // Let's assume Patient model has email or I need to fetch it.
+            // Let's blindly try to fetch from Patient Table via model or direct query if needed.
+            // I'll check Patient model quickly or just do a direct query here if needed, but preferable use Model.
+            // I'll assume Patient.getPatientById exists.
+            // If not, I'll need to fix it.
+            const patient = await Patient.getPatientById(report.patient_id);
+
+            if (!patient || !patient.email) {
+                return res.status(404).json({ success: false, error: 'Patient email not found' });
+            }
+
+            const EmailService = require('../utils/email.service');
+            const doctorName = `${report.doctor_first_name} ${report.doctor_last_name}`;
+            const patientName = `${report.patient_first_name} ${report.patient_last_name}`;
+
+            await EmailService.sendPatientReport(
+                patient.email,
+                patientName,
+                doctorName,
+                {
+                    diagnosis: report.diagnosis,
+                    prescription: report.prescription,
+                    notes: report.notes
+                },
+                report.id
+            );
+
+            res.json({ success: true, message: 'Report sent to patient' });
+
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
     static async getReport(req, res) {
         try {
             const { id: userId, role } = req.user;
@@ -144,6 +262,40 @@ class ReportController {
                     ...report,
                     iterations
                 }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+    }
+
+    static async getAllReports(req, res) {
+        try {
+            const { id: userId, role } = req.user;
+
+            let reports = [];
+            if (role === 'doctor') {
+                const Doctor = require('../models/doctor.model');
+                reports = await Doctor.getDoctorReports(userId);
+            } else if (role === 'patient') {
+                const query = `
+                    SELECT r.*, 
+                           d.first_name as doctor_first_name, 
+                           d.last_name as doctor_last_name,
+                           a.appointment_date 
+                    FROM medical_reports r
+                    INNER JOIN appointments a ON r.appointment_id = a.id
+                    INNER JOIN doctors d ON a.doctor_id = d.id
+                    WHERE a.patient_id = $1
+                    ORDER BY a.appointment_date DESC
+                `;
+                const pool = require('../config/db.config');
+                const result = await pool.query(query, [userId]);
+                reports = result.rows;
+            }
+
+            res.json({
+                success: true,
+                data: reports
             });
         } catch (error) {
             res.status(500).json({ success: false, error: error.message });

@@ -31,6 +31,7 @@ const patientRoutes = require('./routes/patient.routes');
 const appointmentRoutes = require('./routes/appointment.routes');
 const messageRoutes = require('./routes/message.routes');
 const authRoutes = require('./routes/auth.routes');
+const reportRoutes = require('./routes/report.routes');
 
 
 // Root route
@@ -66,6 +67,7 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api', reportRoutes); // Routes inside report.routes.js already have /appointments/... or /reports/...
 
 
 // 404 handler - catch unmatched routes

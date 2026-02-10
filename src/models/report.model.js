@@ -5,7 +5,7 @@ class Report {
     static async createReport(reportData) {
         try {
             const { appointmentId, patientId, doctorId, diagnosis, prescription, notes, aiGenerated } = reportData;
-            
+
             const query = `
                 INSERT INTO medical_reports (
                     id, appointment_id, patient_id, doctor_id, diagnosis, 
@@ -52,6 +52,26 @@ class Report {
         }
     }
 
+    static async updateReportContent(reportId, content, doctorId) {
+        try {
+            const { diagnosis, prescription, notes } = content;
+            const query = `
+                UPDATE medical_reports
+                SET diagnosis = $1, prescription = $2, notes = $3, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $4 AND doctor_id = $5
+                RETURNING *
+            `;
+
+            const result = await pool.query(query, [diagnosis, prescription, notes, reportId, doctorId]);
+            if (result.rows.length === 0) {
+                throw new Error('Report not found or unauthorized');
+            }
+            return result.rows[0];
+        } catch (error) {
+            throw error;
+        }
+    }
+
     static async getReportById(reportId) {
         try {
             const query = `
@@ -76,7 +96,7 @@ class Report {
     static async createReportIteration(iterationData) {
         try {
             const { reportId, changes } = iterationData;
-            
+
             const query = `
                 INSERT INTO report_iterations (id, report_id, changes)
                 VALUES ($1, $2, $3)
@@ -112,7 +132,7 @@ class Report {
                 SELECT id FROM medical_reports 
                 WHERE id = $1 AND ${userRole}_id = $2
             `;
-            
+
             const result = await pool.query(query, [reportId, userId]);
             return result.rows.length > 0;
         } catch (error) {
