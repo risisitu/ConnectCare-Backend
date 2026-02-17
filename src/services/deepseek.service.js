@@ -6,8 +6,8 @@ if (!fetch) {
 }
 
 const generateMedicalReport = async (conversationText) => {
-    const API_KEY = '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'; // Hardcoded as per user request
-    const API_URL = 'https://api.deepseek.com/v1/chat/completions'; // Verify actual DeepSeek endpoint, usually openai-compatible
+    const API_KEY = process.env.DEEPSEEK_API_KEY;
+    const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
     // Prompt from user request
     const systemPrompt = `Generate a concise medical report based on the following doctor–patient conversation. The report should include:

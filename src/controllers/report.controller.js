@@ -60,13 +60,16 @@ class ReportController {
             // Get message history
             const Message = require('../models/message.model');
             const messages = await Message.getMessagesByAppointmentId(appointmentId);
+            console.log(`[AI Report] Fetched ${messages.length} messages for appointment ${appointmentId}`);
 
             // Format conversation
             const conversationText = messages.map(m => `${m.sender_name}: ${m.content}`).join('\n'); // Verify field names from Message model
 
             // Generate AI report
             const DeepSeekService = require('../services/deepseek.service');
+            console.log('[AI Report] Sending conversation to DeepSeek...');
             const aiReportData = await DeepSeekService.generateMedicalReport(conversationText);
+            console.log('[AI Report] Received response from DeepSeek:', JSON.stringify(aiReportData).substring(0, 200) + '...');
 
             // Save the AI-generated report
             const reportData = {
