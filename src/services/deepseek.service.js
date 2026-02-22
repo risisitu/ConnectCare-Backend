@@ -68,7 +68,11 @@ Do not include any markdown formatting (like \`\`\`json), just the raw JSON obje
 
     } catch (error) {
         console.error('Error generating medical report:', error);
-        throw error;
+        // Add more context to the error for better debugging and user feedback
+        if (error.message.includes('DeepSeek API Failed')) {
+            throw error; // Already has details
+        }
+        throw new Error(`AI Report Generation Error: ${error.message}`);
     }
 };
 

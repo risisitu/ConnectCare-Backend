@@ -94,6 +94,9 @@ class ReportController {
 
             const report = await Report.createReport(reportData);
 
+            // Update appointment status to completed
+            await Appointment.updateAppointmentStatus(appointmentId, 'completed', userId, role);
+
             // Send Email
             const EmailService = require('../utils/email.service');
             const doctorName = `${appointment.doctor_first_name} ${appointment.doctor_last_name}`;
@@ -232,6 +235,9 @@ class ReportController {
                 report.id
             );
 
+            // Mark as sent in database
+            await Report.markReportAsSent(reportId, userId);
+
             res.json({ success: true, message: 'Report sent to patient' });
 
         } catch (error) {
@@ -288,7 +294,7 @@ class ReportController {
                     FROM medical_reports r
                     INNER JOIN appointments a ON r.appointment_id = a.id
                     INNER JOIN doctors d ON a.doctor_id = d.id
-                    WHERE a.patient_id = $1
+                    WHERE a.patient_id = $1 AND r.sent_to_patient = TRUE
                     ORDER BY a.appointment_date DESC
                 `;
                 const pool = require('../config/db.config');

@@ -237,11 +237,36 @@ class AppointmentController {
     static async sendVideoCallInvite(req, res) {
         try {
             const { id: userId, role } = req.user;
-            const { doctorId, patientId, doctorName, patientName, link } = req.body;
+            const { appointmentId, doctorId, patientId, doctorName, patientName, link } = req.body;
 
             // Simple validation
             if (!link) {
                 return res.status(400).json({ success: false, error: 'Video call link is required' });
+            }
+
+            if (!appointmentId) {
+                return res.status(400).json({ success: false, error: 'Appointment ID is required' });
+            }
+
+            // Fetch appointment details and validate
+            const appointmentDetails = await Appointment.getAppointmentById(appointmentId);
+            if (!appointmentDetails) {
+                return res.status(404).json({ success: false, error: 'Appointment not found' });
+            }
+
+            // Check if already completed
+            if (appointmentDetails.status === 'completed') {
+                return res.status(400).json({ success: false, error: 'Cannot engage in a call for a completed appointment' });
+            }
+
+            // Check if past date
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const appDate = new Date(appointmentDetails.appointment_date);
+            const appDateOnly = new Date(appDate.getFullYear(), appDate.getMonth(), appDate.getDate());
+
+            if (appDateOnly < today) {
+                return res.status(400).json({ success: false, error: 'Cannot engage in a call for a past appointment' });
             }
 
             // If sender is patient, we notify doctor

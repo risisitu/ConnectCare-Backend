@@ -19,7 +19,7 @@ const pool = new Pool({
 });
 
 async function run() {
-    const appointmentId = '16c0bff8-c9e5-46b1-a359-cb5bf939c6c5'; // ID from previous step
+    const appointmentId = '1c4a1af1-73df-4d05-8076-03722049a85b'; // ID from recent appointment today
 
     try {
         console.log("Fetching appointment...");

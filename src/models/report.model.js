@@ -9,9 +9,9 @@ class Report {
             const query = `
                 INSERT INTO medical_reports (
                     id, appointment_id, patient_id, doctor_id, diagnosis, 
-                    prescription, notes, ai_generated
+                    prescription, notes, ai_generated, sent_to_patient
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 RETURNING *
             `;
 
@@ -23,7 +23,8 @@ class Report {
                 diagnosis,
                 prescription,
                 notes,
-                aiGenerated || false
+                aiGenerated || false,
+                false // sent_to_patient defaults to false
             ];
 
             const result = await pool.query(query, values);
@@ -149,6 +150,25 @@ class Report {
                 prescription: `AI-generated prescription based on symptoms`,
                 notes: `Additional notes from AI analysis`
             };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    static async markReportAsSent(reportId, doctorId) {
+        try {
+            const query = `
+                UPDATE medical_reports
+                SET sent_to_patient = TRUE, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1 AND doctor_id = $2
+                RETURNING *
+            `;
+
+            const result = await pool.query(query, [reportId, doctorId]);
+            if (result.rows.length === 0) {
+                throw new Error('Report not found or unauthorized');
+            }
+            return result.rows[0];
         } catch (error) {
             throw error;
         }
