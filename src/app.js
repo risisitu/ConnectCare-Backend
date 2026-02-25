@@ -32,7 +32,7 @@ const appointmentRoutes = require('./routes/appointment.routes');
 const messageRoutes = require('./routes/message.routes');
 const authRoutes = require('./routes/auth.routes');
 const reportRoutes = require('./routes/report.routes');
-
+const adminRoutes = require('./routes/admin.routes');
 
 // Root route
 app.get('/', (req, res) => {
@@ -67,6 +67,7 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/availability', require('./routes/availability.routes'));
 app.use('/api', reportRoutes); // Routes inside report.routes.js already have /appointments/... or /reports/...
 
