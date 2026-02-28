@@ -6,7 +6,7 @@ class Patient {
     static async createPatient(patientData) {
         try {
             const { email, password, firstName, lastName, phoneNumber, dateOfBirth, gender, bloodGroup, allergies, profileImage } = patientData;
-            
+
             // Check if email already exists
             const checkEmail = await pool.query('SELECT id FROM patients WHERE email = $1', [email]);
             if (checkEmail.rows.length > 0) {
@@ -47,12 +47,16 @@ class Patient {
         try {
             const query = 'SELECT * FROM patients WHERE email = $1';
             const result = await pool.query(query, [email]);
-            
+
             if (result.rows.length === 0) {
                 throw new Error('Patient not found');
             }
 
             const patient = result.rows[0];
+
+            if (patient.status === 'inactive') {
+                throw new Error('Account is inactive. Please contact administrator.');
+            }
             const isValid = await bcrypt.compare(password, patient.password);
 
             if (!isValid) {
@@ -167,13 +171,13 @@ class Patient {
                 throw new Error('Invalid doctor ID format');
             }
 
-            // Check if the doctor exists with detailed logging
+            // Check if the doctor exists and is active with detailed logging
             console.log('Checking doctor with ID:', doctorId);
-            const doctorCheck = await pool.query('SELECT id, first_name, last_name FROM doctors WHERE id = $1', [doctorId]);
+            const doctorCheck = await pool.query("SELECT id, first_name, last_name FROM doctors WHERE id = $1 AND status = 'active'", [doctorId]);
             console.log('Doctor check result:', doctorCheck.rows);
-            
+
             if (doctorCheck.rows.length === 0) {
-                throw new Error('Doctor not found');
+                throw new Error('Doctor not found or inactive');
             }
 
             // Validate and parse appointment date

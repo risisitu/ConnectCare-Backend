@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 class Doctor {
     static async getAllDoctors() {
         try {
-            const query = 'SELECT id, first_name, last_name, specialization, experience_years, clinic_address, profile_image FROM doctors';
+            const query = "SELECT id, first_name, last_name, specialization, experience_years, clinic_address, profile_image FROM doctors WHERE status = 'active'";
             const result = await pool.query(query);
             return result.rows;
         } catch (error) {
@@ -73,6 +73,10 @@ class Doctor {
             }
 
             const doctor = result.rows[0];
+
+            if (doctor.status === 'inactive') {
+                throw new Error('Account is inactive. Please contact administrator.');
+            }
             const isValid = await bcrypt.compare(password, doctor.password);
 
             if (!isValid) {
@@ -125,7 +129,7 @@ class Doctor {
                 SELECT DISTINCT p.id, p.first_name, p.last_name, p.email, p.phone_number, p.gender
                 FROM patients p
                 INNER JOIN appointments a ON p.id = a.patient_id
-                WHERE a.doctor_id = $1
+                WHERE a.doctor_id = $1 AND p.status = 'active'
                 ORDER BY p.first_name, p.last_name
             `;
             const result = await pool.query(query, [doctorId]);
